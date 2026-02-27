@@ -9,11 +9,12 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    port: 5174,
     host: true,
     proxy: {
       // forward /api requests to the Express backend during development
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3001',
         changeOrigin: true,
       },
     },

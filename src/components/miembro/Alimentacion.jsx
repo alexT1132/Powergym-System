@@ -14,7 +14,7 @@ const ClienteAlimentacion = () => {
     const fetchNutrition = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:3000/api/member/nutrition/${user.id}`);
+        const response = await fetch(`/api/member/nutrition/${user.id}`);
         const result = await response.json();
 
         if (result && result.comidas) {

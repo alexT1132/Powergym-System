@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
 // allow CORS for development (if needed)
 import cors from 'cors';
@@ -12,6 +12,157 @@ app.use(cors());
 // database connection (mysql2 pool)
 import db from './db.js';
 import bcrypt from 'bcrypt';
+
+// setup database tables
+async function setupDatabase() {
+  try {
+    // Users table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(150) NOT NULL,
+        email VARCHAR(191) NOT NULL UNIQUE,
+        telefono VARCHAR(30),
+        role ENUM('coach', 'miembro', 'recepcionista', 'admin') NOT NULL DEFAULT 'miembro',
+        avatar TEXT,
+        password VARCHAR(255) NOT NULL
+      ) ENGINE=InnoDB;
+    `);
+
+    // Members table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS members (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        codigo_miembro VARCHAR(50) UNIQUE NOT NULL,
+        nombre VARCHAR(150) NOT NULL,
+        email VARCHAR(191) UNIQUE,
+        telefono VARCHAR(30),
+        avatar TEXT,
+        edad INT NULL,
+        categoria ENUM('fuerza', 'cardio', 'funcional', 'crossfit', 'otro') DEFAULT 'fuerza',
+        objetivo VARCHAR(255),
+        fechaInicio DATE NOT NULL,
+        estado ENUM('activo', 'inactivo', 'suspendido') DEFAULT 'activo'
+      ) ENGINE=InnoDB;
+    `);
+
+    // Memberships
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS memberships (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        tipoMembresia ENUM('diaria', 'semanal', 'mensual', 'anual') NOT NULL,
+        precio DOUBLE NOT NULL,
+        fechaInicio DATE NOT NULL,
+        fechaVencimiento DATE NOT NULL,
+        estado ENUM('activo', 'vencido', 'cancelado') NOT NULL DEFAULT 'activo',
+        UNIQUE KEY uq_membership_period (member_id, tipoMembresia, fechaInicio),
+        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    // Progress
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS progress (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        fecha DATE NOT NULL,
+        peso DOUBLE NOT NULL,
+        masaMuscular DOUBLE,
+        grasaCorporal DOUBLE,
+        UNIQUE KEY uq_progress_member_date (member_id, fecha),
+        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    // Measurements
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS measurements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        fecha DATE NOT NULL,
+        pechoInicial DOUBLE,
+        pechoActual DOUBLE,
+        brazosInicial DOUBLE,
+        brazosActual DOUBLE,
+        cinturaInicial DOUBLE,
+        cinturaActual DOUBLE,
+        piernasInicial DOUBLE,
+        piernasActual DOUBLE,
+        UNIQUE KEY uq_measurements_member_date (member_id, fecha),
+        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    // Attendance
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS attendances (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        fecha DATE NOT NULL,
+        horaEntrada TIME NOT NULL,
+        horaSalida TIME NULL,
+        UNIQUE KEY uq_attendance_entry (member_id, fecha, horaEntrada),
+        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    // Payments
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        monto DOUBLE NOT NULL,
+        tipoMembresia VARCHAR(50) NOT NULL,
+        fechaPago DATE NOT NULL,
+        fechaVencimiento DATE NOT NULL,
+        metodoPago ENUM('efectivo', 'tarjeta', 'transferencia') NOT NULL DEFAULT 'efectivo',
+        estado ENUM('pagado', 'pendiente', 'vencido', 'cancelado') NOT NULL DEFAULT 'pagado',
+        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    // Routines
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS routines (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        descripcion TEXT,
+        categoria VARCHAR(100),
+        duracion VARCHAR(100)
+      ) ENGINE=InnoDB;
+    `);
+
+    // Routine exercises
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS routine_exercises (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        routine_id INT NOT NULL,
+        nombre VARCHAR(255) NOT NULL,
+        series INT,
+        repeticiones VARCHAR(100),
+        descanso VARCHAR(100),
+        orden INT,
+        FOREIGN KEY (routine_id) REFERENCES routines(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    // Member routines
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS member_routines (
+        member_id INT NOT NULL,
+        routine_id INT NOT NULL,
+        PRIMARY KEY (member_id, routine_id),
+        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+        FOREIGN KEY (routine_id) REFERENCES routines(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    console.log('Database tables setup completed');
+  } catch (err) {
+    console.error('Failed to setup database tables', err);
+  }
+}
 
 // ensure admin user exists
 async function ensureAdmin() {
@@ -748,5 +899,6 @@ app.get('*', (req, res) => {
 
 app.listen(port, async () => {
   console.log(`Server running on http://localhost:${port}`);
+  await setupDatabase();
   await ensureAdmin();
 });

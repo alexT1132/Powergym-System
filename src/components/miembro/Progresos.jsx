@@ -14,7 +14,7 @@ const ClienteProgreso = () => {
     const fetchProgress = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:3000/api/member/progress/${user.id}`);
+        const response = await fetch(`/api/member/progress/${user.id}`);
         const result = await response.json();
 
         // Map data to the format used by the component

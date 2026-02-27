@@ -13,7 +13,7 @@ const ClienteRutinas = () => {
     const fetchRoutines = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:3000/api/member/routines/${user.id}`);
+        const response = await fetch(`/api/member/routines/${user.id}`);
         const result = await response.json();
         // The API returns routines with exercies. We assume active if they appear here for now.
         // In a more complex setup we could have an 'activa' field in the DB.

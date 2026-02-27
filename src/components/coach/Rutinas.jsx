@@ -10,6 +10,10 @@ const CoachRutinas = () => {
   const [rutinaAEliminar, setRutinaAEliminar] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [rutinas, setRutinas] = useState([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [rutinaAAsignar, setRutinaAAsignar] = useState(null);
+  const [miembros, setMiembros] = useState([]);
+  const [miembroSeleccionado, setMiembroSeleccionado] = useState('');
 
   const fetchRutinas = async () => {
     setIsLoading(true);
@@ -138,6 +142,49 @@ const CoachRutinas = () => {
       if (res.ok) {
         await fetchRutinas();
         handleCerrarModalCrear();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchMiembros = async () => {
+    try {
+      const res = await fetch('/api/members');
+      const data = await res.json();
+      if (res.ok) setMiembros(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAbrirModalAsignar = (rutina) => {
+    setRutinaAAsignar(rutina);
+    fetchMiembros();
+    setShowAssignModal(true);
+  };
+
+  const handleCerrarModalAsignar = () => {
+    setShowAssignModal(false);
+    setRutinaAAsignar(null);
+    setMiembroSeleccionado('');
+  };
+
+  const handleAsignarRutina = async () => {
+    if (!miembroSeleccionado) return;
+    try {
+      const res = await fetch('/api/coach/assign-routine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          member_id: miembroSeleccionado,
+          routine_id: rutinaAAsignar.id
+        })
+      });
+      if (res.ok) {
+        await fetchRutinas();
+        handleCerrarModalAsignar();
+        handleCerrarModal();
       }
     } catch (err) {
       console.error(err);
@@ -504,6 +551,7 @@ const CoachRutinas = () => {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
+                  onClick={() => handleAbrirModalAsignar(selectedRutina)}
                   className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all duration-300"
                 >
                   Asignar a Cliente
@@ -689,6 +737,72 @@ const CoachRutinas = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleCerrarModalCrear}
+                  className="flex-1 py-3 bg-white/10 border border-white/20 text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-300"
+                >
+                  Cancelar
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Asignar Rutina */}
+      <AnimatePresence>
+        {showAssignModal && rutinaAAsignar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+            onClick={handleCerrarModalAsignar}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-white/20 p-8 shadow-2xl max-w-md w-full"
+            >
+              <h3 className="text-2xl font-bold text-white mb-4 text-center">Asignar Rutina</h3>
+              <p className="text-gray-400 mb-6 text-center">
+                Selecciona al cliente para asignarle la rutina: <br />
+                <span className="text-blue-400 font-semibold">{rutinaAAsignar.nombre}</span>
+              </p>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Cliente</label>
+                  <select
+                    value={miembroSeleccionado}
+                    onChange={(e) => setMiembroSeleccionado(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="" className="bg-slate-800">Seleccionar Cliente</option>
+                    {miembros.map((miembro) => (
+                      <option key={miembro.id} value={miembro.id} className="bg-slate-800">
+                        {miembro.nombre} ({miembro.codigo_miembro})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleAsignarRutina}
+                  disabled={!miembroSeleccionado}
+                  className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                >
+                  Confirmar Asignación
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleCerrarModalAsignar}
                   className="flex-1 py-3 bg-white/10 border border-white/20 text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-300"
                 >
                   Cancelar

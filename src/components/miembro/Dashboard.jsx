@@ -13,7 +13,7 @@ const ClienteDashboard = () => {
     const fetchData = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:3000/api/member/dashboard/${user.id}`);
+        const response = await fetch(`/api/member/dashboard/${user.id}`);
         const result = await response.json();
         setData(result);
       } catch (error) {
